@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>News Aggregator</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #333; }
+        .article { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .source { color: #666; font-size: 14px; }
+        a { color: #1a73e8; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>📰 News Aggregator</h1>
+    {% for article in articles %}
+    <div class="article">
+        <a href="{{ article.link }}" target="_blank">{{ article.title }}</a>
+        <p class="source">{{ article.source }}</p>
+    </div>
+    {% endfor %}
+</body>
+</html>
