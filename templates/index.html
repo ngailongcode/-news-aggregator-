@@ -1,25 +1,133 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <title>News Aggregator</title>
+    <title>新聞聚合器</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        body { font-family: Arial; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { color: #333; }
-        .article { border-bottom: 1px solid #eee; padding: 15px 0; }
-        .source { color: #666; font-size: 14px; }
-        a { color: #1a73e8; text-decoration: none; }
-        a:hover { text-decoration: underline; }
+        :root {
+            --bg: #ffffff;
+            --text: #333333;
+            --card-bg: #f5f5f5;
+            --border: #dddddd;
+            --accent: #1a73e8;
+        }
+        .dark {
+            --bg: #1a1a1a;
+            --text: #ffffff;
+            --card-bg: #2d2d2d;
+            --border: #444444;
+            --accent: #64b5f6;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+            transition: all 0.3s;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .btn:hover { opacity: 0.8; }
+        .categories {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .cat-btn {
+            padding: 8px 16px;
+            border: 2px solid var(--accent);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .cat-btn.active, .cat-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+        .article {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--accent);
+        }
+        .article a {
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .article a:hover { text-decoration: underline; }
+        .source {
+            color: #888;
+            font-size: 12px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
-    <h1>📰 News Aggregator</h1>
+    <div class="header">
+        <h1>📰 新聞聚合器</h1>
+        <div class="controls">
+            <button class="btn" onclick="location.reload()">🔄 刷新</button>
+            <button class="btn" onclick="toggleDark()">🌙 深色模式</button>
+            <a class="btn" href="?category={{ category }}&translate={{ 'off' if translate == 'on' else 'on' }}">
+                🌐 {{ '顯示原文' if translate == 'on' else '翻譯中文' }}
+            </a>
+        </div>
+    </div>
+    
+    <div class="categories">
+        {% for cat in categories %}
+        <a class="cat-btn {{ 'active' if cat == category else '' }}" 
+           href="?category={{ cat }}&translate={{ translate }}">
+            {{ {'world': '🌍 國際', 'tech': '💻 科技', 'business': '💼 財經', 'sports': '⚽ 體育'}[cat] }}
+        </a>
+        {% endfor %}
+    </div>
+    
     {% for article in articles %}
     <div class="article">
         <a href="{{ article.link }}" target="_blank">{{ article.title }}</a>
         <p class="source">{{ article.source }}</p>
     </div>
     {% endfor %}
+    
+    <script>
+        function toggleDark() {
+            document.body.classList.toggle('dark');
+            localStorage.setItem('dark', document.body.classList.contains('dark'));
+        }
+        if (localStorage.getItem('dark') === 'true') {
+            document.body.classList.add('dark');
+        }
+    </script>
 </body>
 </html>
