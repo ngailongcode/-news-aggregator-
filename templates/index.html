@@ -12,39 +12,41 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0f0f0f;
-            color: #e0e0e0;
-            line-height: 1.6;
-            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
             padding-bottom: 80px;
         }
 
         .header {
+            background: #1a1a1a;
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #333;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
         }
 
-        h1 {
-            font-size: 24px;
-            font-weight: 700;
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
         }
 
         .header-buttons {
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .refresh-btn {
-            background: #2d5a27;
+            background: #4a9eff;
             color: white;
             border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
             font-size: 14px;
             cursor: pointer;
             display: flex;
@@ -54,12 +56,7 @@
         }
 
         .refresh-btn:hover {
-            background: #3d7a37;
-        }
-
-        .refresh-btn:disabled {
-            background: #333;
-            cursor: not-allowed;
+            background: #3a8eef;
         }
 
         .refresh-btn.spinning .icon {
@@ -72,23 +69,27 @@
         }
 
         .last-update {
+            padding: 8px 20px;
             font-size: 12px;
-            color: #888;
-            margin-bottom: 16px;
+            color: #666;
         }
 
         .categories {
+            padding: 12px 20px;
             display: flex;
             gap: 8px;
-            margin-bottom: 20px;
             overflow-x: auto;
-            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .categories::-webkit-scrollbar {
+            display: none;
         }
 
         .category-btn {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            color: #e0e0e0;
+            background: #2a2a2a;
+            color: #888;
+            border: none;
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
@@ -97,13 +98,21 @@
             transition: all 0.2s;
         }
 
-        .category-btn:hover {
-            border-color: #555;
+        .category-btn.active {
+            background: #4a9eff;
+            color: white;
         }
 
-        .category-btn.active {
-            background: #2d5a27;
-            border-color: #2d5a27;
+        .category-btn:hover {
+            background: #3a3a3a;
+        }
+
+        .category-btn.active:hover {
+            background: #3a8eef;
+        }
+
+        #newsContainer {
+            padding: 16px 20px;
         }
 
         .loading {
@@ -115,14 +124,14 @@
             width: 40px;
             height: 40px;
             border: 3px solid #333;
-            border-top-color: #2d5a27;
+            border-top-color: #4a9eff;
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin: 0 auto 16px;
         }
 
         .loading-text {
-            color: #888;
+            color: #666;
             font-size: 14px;
         }
 
@@ -131,14 +140,14 @@
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
-            border: 1px solid #2a2a2a;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.2s, background 0.2s;
+            border: 1px solid #2a2a2a;
         }
 
         .news-card:hover {
-            border-color: #444;
-            transform: translateY(-1px);
+            background: #222;
+            transform: translateY(-2px);
         }
 
         .news-card:active {
@@ -262,7 +271,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>📰 新聞聚合</h1>
+        <h1>🗞️ 新聞聚合</h1>
         <div class="header-buttons">
             <button class="refresh-btn" onclick="refreshNews()">
                 <span class="icon">🔄</span>
@@ -275,11 +284,13 @@
 
     <div class="categories" id="categories">
         <button class="category-btn active" data-category="all">全部</button>
-        <button class="category-btn" data-category="finance">財經</button>
+        <button class="category-btn" data-category="business">財經</button>
         <button class="category-btn" data-category="tech">科技</button>
         <button class="category-btn" data-category="entertainment">娛樂</button>
         <button class="category-btn" data-category="sports">體育</button>
         <button class="category-btn" data-category="world">國際</button>
+        <button class="category-btn" data-category="health">健康</button>
+        <button class="category-btn" data-category="science">科學</button>
     </div>
 
     <div id="newsContainer">
@@ -293,7 +304,7 @@
 
     <nav class="bottom-nav">
         <div class="nav-item active">
-            <span class="nav-icon">📰</span>
+            <span class="nav-icon">🗞️</span>
             <span>新聞</span>
         </div>
         <div class="nav-item" onclick="refreshNews()">
@@ -323,7 +334,12 @@
                     document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     currentCategory = btn.dataset.category;
-                    displayNews();
+                    
+                    if (currentCategory === 'all') {
+                        loadNews();
+                    } else {
+                        loadNewsByCategory(currentCategory);
+                    }
                 });
             });
         }
@@ -343,8 +359,13 @@
             try {
                 const response = await fetch('/api/news');
                 if (!response.ok) throw new Error('API 錯誤');
-                
-                allNews = await response.json();
+
+                const data = await response.json();
+                if (data.success) {
+                    allNews = data.articles || [];
+                } else {
+                    allNews = [];
+                }
                 updateLastUpdateTime();
                 displayNews();
             } catch (error) {
@@ -360,9 +381,46 @@
             }
         }
 
+        async function loadNewsByCategory(category) {
+            if (isLoading) return;
+            isLoading = true;
+
+            const container = document.getElementById('newsContainer');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">載入新聞中...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/news?category=' + category);
+                if (!response.ok) throw new Error('API 錯誤');
+
+                const data = await response.json();
+                if (data.success) {
+                    allNews = data.articles || [];
+                } else {
+                    allNews = [];
+                }
+                updateLastUpdateTime();
+                displayNews();
+            } catch (error) {
+                console.error('Error:', error);
+                container.innerHTML = `
+                    <div class="error-message">
+                        <p>😕 無法載入新聞</p>
+                        <button class="retry-btn" onclick="loadNewsByCategory('${category}')">重試</button>
+                    </div>
+                `;
+            } finally {
+                isLoading = false;
+            }
+        }
+
         async function refreshNews() {
             if (isLoading) return;
-            
+
             const btn = document.querySelector('.refresh-btn');
             btn.classList.add('spinning');
             btn.disabled = true;
@@ -370,11 +428,16 @@
             isLoading = true;
 
             try {
-                // 強制刷新：添加 refresh 參數
-                const response = await fetch('/api/news?refresh=true');
+                const category = currentCategory === 'all' ? 'headlines' : currentCategory;
+                const response = await fetch('/api/news?category=' + category);
                 if (!response.ok) throw new Error('API 錯誤');
-                
-                allNews = await response.json();
+
+                const data = await response.json();
+                if (data.success) {
+                    allNews = data.articles || [];
+                } else {
+                    allNews = [];
+                }
                 updateLastUpdateTime();
                 displayNews();
                 showToast('✅ 新聞已更新');
@@ -390,40 +453,23 @@
 
         function displayNews() {
             const container = document.getElementById('newsContainer');
-            
-            let filteredNews = allNews;
-            if (currentCategory !== 'all') {
-                filteredNews = allNews.filter(item => item.category === currentCategory);
-            }
 
-            if (filteredNews.length === 0) {
+            if (allNews.length === 0) {
                 container.innerHTML = '<div class="no-news">暫無相關新聞</div>';
                 return;
             }
 
-            container.innerHTML = filteredNews.map(item => `
-                <article class="news-card" onclick="openNews('${encodeURIComponent(item.link)}')">
-                    <div class="news-source">${item.source}</div>
-                    <h2 class="news-title">${item.title}</h2>
+            container.innerHTML = allNews.map(item => `
+                <article class="news-card" onclick="openNews('${encodeURIComponent(item.url)}')">
+                    <div class="news-source">${item.source || '未知來源'}</div>
+                    <h2 class="news-title">${item.title || '無標題'}</h2>
                     ${item.description ? `<p class="news-description">${item.description}</p>` : ''}
                     <div class="news-meta">
-                        <span class="news-category">${getCategoryName(item.category)}</span>
-                        <span>${item.pubDate}</span>
+                        <span class="news-category">${item.source || '新聞'}</span>
+                        <span>${item.published || ''}</span>
                     </div>
                 </article>
             `).join('');
-        }
-
-        function getCategoryName(category) {
-            const names = {
-                'finance': '財經',
-                'tech': '科技',
-                'entertainment': '娛樂',
-                'sports': '體育',
-                'world': '國際',
-                'general': '一般'
-            };
-            return names[category] || category;
         }
 
         function openNews(url) {
