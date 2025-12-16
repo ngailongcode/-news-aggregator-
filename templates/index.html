@@ -41,7 +41,7 @@
             gap: 8px;
         }
 
-        .refresh-btn {
+        .header-btn {
             background: #4a9eff;
             color: white;
             border: none;
@@ -55,11 +55,23 @@
             transition: background 0.2s;
         }
 
-        .refresh-btn:hover {
+        .header-btn:hover {
             background: #3a8eef;
         }
 
-        .refresh-btn.spinning .icon {
+        .header-btn.translate-btn {
+            background: #10b981;
+        }
+
+        .header-btn.translate-btn:hover {
+            background: #059669;
+        }
+
+        .header-btn.translate-btn.active {
+            background: #f59e0b;
+        }
+
+        .header-btn.spinning .icon {
             animation: spin 1s linear infinite;
         }
 
@@ -267,13 +279,26 @@
         .toast.show {
             opacity: 1;
         }
+
+        .translated-badge {
+            background: #f59e0b;
+            color: black;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🗞️ 新聞聚合</h1>
         <div class="header-buttons">
-            <button class="refresh-btn" onclick="refreshNews()">
+            <button class="header-btn translate-btn" id="translateBtn" onclick="toggleTranslate()">
+                <span class="icon">🌐</span>
+                <span class="text">中文</span>
+            </button>
+            <button class="header-btn" id="refreshBtn" onclick="refreshNews()">
                 <span class="icon">🔄</span>
                 <span class="text">刷新</span>
             </button>
@@ -307,6 +332,10 @@
             <span class="nav-icon">🗞️</span>
             <span>新聞</span>
         </div>
+        <div class="nav-item" onclick="toggleTranslate()">
+            <span class="nav-icon">🌐</span>
+            <span>翻譯</span>
+        </div>
         <div class="nav-item" onclick="refreshNews()">
             <span class="nav-icon">🔄</span>
             <span>刷新</span>
@@ -319,10 +348,11 @@
 
     <script>
         let allNews = [];
+        let translatedNews = {};
         let currentCategory = 'all';
         let isLoading = false;
+        let isTranslateMode = false;
 
-        // 頁面載入時獲取新聞
         document.addEventListener('DOMContentLoaded', () => {
             loadNews();
             setupCategoryButtons();
@@ -421,7 +451,7 @@
         async function refreshNews() {
             if (isLoading) return;
 
-            const btn = document.querySelector('.refresh-btn');
+            const btn = document.getElementById('refreshBtn');
             btn.classList.add('spinning');
             btn.disabled = true;
 
@@ -451,6 +481,58 @@
             }
         }
 
+        async function toggleTranslate() {
+            isTranslateMode = !isTranslateMode;
+            const btn = document.getElementById('translateBtn');
+            
+            if (isTranslateMode) {
+                btn.classList.add('active');
+                btn.querySelector('.text').textContent = '原文';
+                showToast('🌐 正在翻譯...');
+                await translateAllNews();
+            } else {
+                btn.classList.remove('active');
+                btn.querySelector('.text').textContent = '中文';
+                showToast('📄 顯示原文');
+            }
+            
+            displayNews();
+        }
+
+        async function translateAllNews() {
+            for (let i = 0; i < allNews.length; i++) {
+                const news = allNews[i];
+                const key = news.url || news.title;
+                
+                if (!translatedNews[key]) {
+                    try {
+                        const response = await fetch('/api/translate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: news.title,
+                                description: news.description || ''
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.success) {
+                                translatedNews[key] = {
+                                    title: data.translated_title,
+                                    description: data.translated_description
+                                };
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Translation error:', error);
+                    }
+                }
+            }
+            displayNews();
+            showToast('✅ 翻譯完成');
+        }
+
         function displayNews() {
             const container = document.getElementById('newsContainer');
 
@@ -459,17 +541,25 @@
                 return;
             }
 
-            container.innerHTML = allNews.map(item => `
-                <article class="news-card" onclick="openNews('${encodeURIComponent(item.url)}')">
-                    <div class="news-source">${item.source || '未知來源'}</div>
-                    <h2 class="news-title">${item.title || '無標題'}</h2>
-                    ${item.description ? `<p class="news-description">${item.description}</p>` : ''}
-                    <div class="news-meta">
-                        <span class="news-category">${item.source || '新聞'}</span>
-                        <span>${item.published || ''}</span>
-                    </div>
-                </article>
-            `).join('');
+            container.innerHTML = allNews.map(item => {
+                const key = item.url || item.title;
+                const translated = translatedNews[key];
+                const title = isTranslateMode && translated ? translated.title : item.title;
+                const description = isTranslateMode && translated ? translated.description : item.description;
+                const badge = isTranslateMode && translated ? '<span class="translated-badge">已翻譯</span>' : '';
+
+                return `
+                    <article class="news-card" onclick="openNews('${encodeURIComponent(item.url)}')">
+                        <div class="news-source">${item.source || '未知來源'}${badge}</div>
+                        <h2 class="news-title">${title || '無標題'}</h2>
+                        ${description ? `<p class="news-description">${description}</p>` : ''}
+                        <div class="news-meta">
+                            <span class="news-category">${item.source || '新聞'}</span>
+                            <span>${item.published || ''}</span>
+                        </div>
+                    </article>
+                `;
+            }).join('');
         }
 
         function openNews(url) {
