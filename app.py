@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import feedparser
 from googletrans import Translator
 from datetime import datetime
@@ -16,7 +16,7 @@ RSS_FEEDS = {
         ('CNN', 'http://rss.cnn.com/rss/edition.rss'),
     ],
     'world': [
-        ('Google News', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVm9LaUlBUAE'),
+        ('Google News', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY0U0FtVm9HZ0pVVnlnQVAB'),
         ('BBC World', 'https://feeds.bbci.co.uk/news/world/rss.xml'),
         ('CNN World', 'http://rss.cnn.com/rss/edition_world.rss'),
         ('Reuters', 'https://www.reutersagency.com/feed/?best-topics=world'),
@@ -26,12 +26,12 @@ RSS_FEEDS = {
         ('CNN Politics', 'http://rss.cnn.com/rss/edition_politics.rss'),
     ],
     'business': [
-        ('Google Business', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVm9LaUlBUAE'),
+        ('Google Business', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVm9HZ0pVVnlnQVAB'),
         ('BBC Business', 'https://feeds.bbci.co.uk/news/business/rss.xml'),
         ('CNN Business', 'http://rss.cnn.com/rss/money_news_international.rss'),
     ],
     'tech': [
-        ('Google Tech', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVm9LaUlBUAE'),
+        ('Google Tech', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREdyTVhZU0FtVm9HZ0pVVnlnQVAB'),
         ('BBC Tech', 'https://feeds.bbci.co.uk/news/technology/rss.xml'),
         ('TechCrunch', 'https://techcrunch.com/feed/'),
         ('The Verge', 'https://www.theverge.com/rss/index.xml'),
@@ -108,7 +108,6 @@ def get_news(category='headlines', translate=False):
         try:
             feed = feedparser.parse(feed_url)
             for entry in feed.entries[:10]:  # 每個來源取10條
-                
                 # 獲取內容摘要
                 description = ''
                 if hasattr(entry, 'summary'):
@@ -144,7 +143,6 @@ def get_news(category='headlines', translate=False):
                     'source': source_name,
                     'published': format_date(entry.get('published', '')),
                 })
-                
         except Exception as e:
             print(f"Error fetching {source_name}: {e}")
             continue
@@ -160,10 +158,31 @@ def index():
     articles = get_news(category, translate)
     
     return render_template('index.html',
-                         articles=articles,
-                         categories=CATEGORY_NAMES,
-                         current_category=category,
-                         translate=translate)
+                          articles=articles,
+                          categories=CATEGORY_NAMES,
+                          current_category=category,
+                          translate=translate)
+
+@app.route('/api/news')
+def api_news():
+    """API endpoint for fetching news"""
+    category = request.args.get('category', 'headlines')
+    translate = request.args.get('translate', 'false') == 'true'
+    
+    try:
+        articles = get_news(category, translate)
+        return jsonify({
+            'success': True,
+            'articles': articles,
+            'category': category,
+            'category_name': CATEGORY_NAMES.get(category, category)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'articles': []
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
