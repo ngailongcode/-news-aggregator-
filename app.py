@@ -3,6 +3,7 @@ import feedparser
 from googletrans import Translator
 from datetime import datetime
 import time
+import re
 
 app = Flask(__name__)
 translator = Translator()
@@ -15,7 +16,7 @@ RSS_FEEDS = {
         ('CNN', 'http://rss.cnn.com/rss/edition.rss'),
     ],
     'world': [
-        ('Google News', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB'),
+        ('Google News', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVm9LaUlBUAE'),
         ('BBC World', 'https://feeds.bbci.co.uk/news/world/rss.xml'),
         ('CNN World', 'http://rss.cnn.com/rss/edition_world.rss'),
         ('Reuters', 'https://www.reutersagency.com/feed/?best-topics=world'),
@@ -25,12 +26,12 @@ RSS_FEEDS = {
         ('CNN Politics', 'http://rss.cnn.com/rss/edition_politics.rss'),
     ],
     'business': [
-        ('Google Business', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB'),
+        ('Google Business', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVm9LaUlBUAE'),
         ('BBC Business', 'https://feeds.bbci.co.uk/news/business/rss.xml'),
         ('CNN Business', 'http://rss.cnn.com/rss/money_news_international.rss'),
     ],
     'tech': [
-        ('Google Tech', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB'),
+        ('Google Tech', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVm9LaUlBUAE'),
         ('BBC Tech', 'https://feeds.bbci.co.uk/news/technology/rss.xml'),
         ('TechCrunch', 'https://techcrunch.com/feed/'),
         ('The Verge', 'https://www.theverge.com/rss/index.xml'),
@@ -86,6 +87,7 @@ def format_date(date_string):
             '%a, %d %b %Y %H:%M:%S %z',
             '%a, %d %b %Y %H:%M:%S %Z',
             '%Y-%m-%dT%H:%M:%S%z',
+            '%Y-%m-%dT%H:%M:%SZ',
         ]
         for fmt in formats:
             try:
@@ -115,8 +117,7 @@ def get_news(category='headlines', translate=False):
                     description = entry.description
                 
                 # 清理 HTML 標籤
-                import re
-                description = re.sub('<[^<]+?>', '', description)
+                description = re.sub(r'<[^<]+?>', '', description)
                 description = description[:200] + '...' if len(description) > 200 else description
                 
                 # 獲取圖片
@@ -165,4 +166,4 @@ def index():
                          translate=translate)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
