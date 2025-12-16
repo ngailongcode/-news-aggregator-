@@ -1,188 +1,181 @@
-from flask import Flask, render_template, request, jsonify
-import feedparser
-from googletrans import Translator
-from datetime import datetime
-import time
+from flask import Flask, jsonify, request, render_template
+import requests
 import re
+from datetime import datetime
+import urllib.parse
 
 app = Flask(__name__)
-translator = Translator()
 
-# 擴展的 RSS 來源分類
-RSS_FEEDS = {
+# 新聞分類
+CATEGORY_FEEDS = {
     'headlines': [
-        ('Google News', 'https://news.google.com/rss'),
-        ('BBC', 'https://feeds.bbci.co.uk/news/rss.xml'),
-        ('CNN', 'http://rss.cnn.com/rss/edition.rss'),
-    ],
-    'world': [
-        ('Google News', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY0U0FtVm9HZ0pVVnlnQVAB'),
-        ('BBC World', 'https://feeds.bbci.co.uk/news/world/rss.xml'),
-        ('CNN World', 'http://rss.cnn.com/rss/edition_world.rss'),
-        ('Reuters', 'https://www.reutersagency.com/feed/?best-topics=world'),
-    ],
-    'politics': [
-        ('BBC Politics', 'https://feeds.bbci.co.uk/news/politics/rss.xml'),
-        ('CNN Politics', 'http://rss.cnn.com/rss/edition_politics.rss'),
+        {'url': 'https://feeds.bbci.co.uk/news/rss.xml', 'name': 'BBC'},
+        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', 'name': 'NYT'}
     ],
     'business': [
-        ('Google Business', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVm9HZ0pVVnlnQVAB'),
-        ('BBC Business', 'https://feeds.bbci.co.uk/news/business/rss.xml'),
-        ('CNN Business', 'http://rss.cnn.com/rss/money_news_international.rss'),
+        {'url': 'https://feeds.bbci.co.uk/news/business/rss.xml', 'name': 'BBC Business'},
+        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', 'name': 'NYT Business'}
     ],
     'tech': [
-        ('Google Tech', 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREdyTVhZU0FtVm9HZ0pVVnlnQVAB'),
-        ('BBC Tech', 'https://feeds.bbci.co.uk/news/technology/rss.xml'),
-        ('TechCrunch', 'https://techcrunch.com/feed/'),
-        ('The Verge', 'https://www.theverge.com/rss/index.xml'),
-    ],
-    'sports': [
-        ('BBC Sports', 'https://feeds.bbci.co.uk/sport/rss.xml'),
-        ('ESPN', 'https://www.espn.com/espn/rss/news'),
+        {'url': 'https://feeds.bbci.co.uk/news/technology/rss.xml', 'name': 'BBC Tech'},
+        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', 'name': 'NYT Tech'}
     ],
     'entertainment': [
-        ('BBC Entertainment', 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml'),
-        ('E! News', 'https://www.eonline.com/syndication/feeds/rssfeeds/topstories.xml'),
+        {'url': 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', 'name': 'BBC Entertainment'}
+    ],
+    'sports': [
+        {'url': 'https://feeds.bbci.co.uk/sport/rss.xml', 'name': 'BBC Sport'}
+    ],
+    'world': [
+        {'url': 'https://feeds.bbci.co.uk/news/world/rss.xml', 'name': 'BBC World'},
+        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', 'name': 'NYT World'}
     ],
     'health': [
-        ('BBC Health', 'https://feeds.bbci.co.uk/news/health/rss.xml'),
-        ('CNN Health', 'http://rss.cnn.com/rss/edition_health.rss'),
+        {'url': 'https://feeds.bbci.co.uk/news/health/rss.xml', 'name': 'BBC Health'},
+        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml', 'name': 'NYT Health'}
     ],
     'science': [
-        ('BBC Science', 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml'),
-        ('NASA', 'https://www.nasa.gov/rss/dyn/breaking_news.rss'),
-    ],
+        {'url': 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml', 'name': 'BBC Science'},
+        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', 'name': 'NYT Science'}
+    ]
 }
 
-# 分類中文名稱
-CATEGORY_NAMES = {
-    'headlines': '頭條新聞',
-    'world': '國際',
-    'politics': '政治',
-    'business': '財經',
-    'tech': '科技',
-    'sports': '體育',
-    'entertainment': '娛樂',
-    'health': '健康',
-    'science': '科學',
-}
+def parse_xml(xml_text):
+    """簡易 XML 解析"""
+    items = []
+    item_pattern = re.compile(r'<item>(.*?)</item>', re.DOTALL)
+    
+    for match in item_pattern.finditer(xml_text):
+        item_content = match.group(1)
+        
+        def get_tag(tag):
+            # 處理 CDATA
+            pattern = re.compile(f'<{tag}[^>]*><!\\[CDATA\\[(.*?)\\]\\]></{tag}>|<{tag}[^>]*>(.*?)</{tag}>', re.DOTALL)
+            m = pattern.search(item_content)
+            if m:
+                return (m.group(1) or m.group(2) or '').strip()
+            return ''
+        
+        title = get_tag('title')
+        link = get_tag('link')
+        description = re.sub(r'<[^>]+>', '', get_tag('description'))[:200]
+        pub_date = get_tag('pubDate')
+        
+        if title:
+            items.append({
+                'title': title,
+                'link': link,
+                'description': description,
+                'pubDate': pub_date
+            })
+    
+    return items
+
+def format_date(date_str):
+    """格式化日期"""
+    try:
+        dt = datetime.strptime(date_str, '%a, %d %b %Y %H:%M:%S %Z')
+        return dt.strftime('%Y-%m-%d %H:%M')
+    except:
+        try:
+            dt = datetime.strptime(date_str[:25], '%a, %d %b %Y %H:%M:%S')
+            return dt.strftime('%Y-%m-%d %H:%M')
+        except:
+            return date_str
 
 def translate_text(text):
-    """翻譯文字為中文"""
-    if not text:
-        return ''
-    try:
-        result = translator.translate(text, dest='zh-tw')
-        return result.text
-    except:
+    """使用 Google 翻譯 API"""
+    if not text or text.strip() == '':
         return text
-
-def format_date(date_string):
-    """格式化日期"""
-    if not date_string:
-        return ''
+    
     try:
-        # 嘗試解析 RSS 日期格式
-        formats = [
-            '%a, %d %b %Y %H:%M:%S %z',
-            '%a, %d %b %Y %H:%M:%S %Z',
-            '%Y-%m-%dT%H:%M:%S%z',
-            '%Y-%m-%dT%H:%M:%SZ',
-        ]
-        for fmt in formats:
-            try:
-                dt = datetime.strptime(date_string, fmt)
-                return dt.strftime('%Y-%m-%d %H:%M')
-            except:
-                continue
-        return date_string[:16]
-    except:
-        return ''
-
-def get_news(category='headlines', translate=False):
-    """獲取指定分類的新聞"""
-    articles = []
-    feeds = RSS_FEEDS.get(category, RSS_FEEDS['headlines'])
-    
-    for source_name, feed_url in feeds:
-        try:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:10]:  # 每個來源取10條
-                # 獲取內容摘要
-                description = ''
-                if hasattr(entry, 'summary'):
-                    description = entry.summary
-                elif hasattr(entry, 'description'):
-                    description = entry.description
-                
-                # 清理 HTML 標籤
-                description = re.sub(r'<[^<]+?>', '', description)
-                description = description[:200] + '...' if len(description) > 200 else description
-                
-                # 獲取圖片
-                image = ''
-                if hasattr(entry, 'media_content') and entry.media_content:
-                    image = entry.media_content[0].get('url', '')
-                elif hasattr(entry, 'media_thumbnail') and entry.media_thumbnail:
-                    image = entry.media_thumbnail[0].get('url', '')
-                elif hasattr(entry, 'enclosures') and entry.enclosures:
-                    image = entry.enclosures[0].get('href', '')
-                
-                title = entry.get('title', '無標題')
-                
-                # 翻譯標題和摘要
-                if translate:
-                    title = translate_text(title)
-                    description = translate_text(description)
-                
-                articles.append({
-                    'title': title,
-                    'description': description,
-                    'url': entry.get('link', '#'),
-                    'image': image,
-                    'source': source_name,
-                    'published': format_date(entry.get('published', '')),
-                })
-        except Exception as e:
-            print(f"Error fetching {source_name}: {e}")
-            continue
-    
-    # 按時間排序
-    articles.sort(key=lambda x: x['published'], reverse=True)
-    return articles[:30]  # 返回最多30條
+        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q={urllib.parse.quote(text)}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data and data[0]:
+                translated = ''
+                for part in data[0]:
+                    if part[0]:
+                        translated += part[0]
+                return translated if translated else text
+        
+        return text
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return text
 
 @app.route('/')
 def index():
-    category = request.args.get('category', 'headlines')
-    translate = request.args.get('translate', 'false') == 'true'
-    articles = get_news(category, translate)
-    
-    return render_template('index.html',
-                          articles=articles,
-                          categories=CATEGORY_NAMES,
-                          current_category=category,
-                          translate=translate)
+    return render_template('index.html')
 
 @app.route('/api/news')
-def api_news():
-    """API endpoint for fetching news"""
+def get_news():
     category = request.args.get('category', 'headlines')
-    translate = request.args.get('translate', 'false') == 'true'
+    feeds = CATEGORY_FEEDS.get(category, CATEGORY_FEEDS['headlines'])
     
+    all_articles = []
+    
+    for feed in feeds:
+        try:
+            response = requests.get(feed['url'], timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (compatible; NewsAggregator/1.0)'
+            })
+            
+            if response.status_code == 200:
+                items = parse_xml(response.text)
+                
+                for item in items[:10]:
+                    all_articles.append({
+                        'title': item['title'],
+                        'description': item['description'],
+                        'url': item['link'],
+                        'source': feed['name'],
+                        'published': format_date(item['pubDate']),
+                        'category': category
+                    })
+        except Exception as e:
+            print(f"Error fetching {feed['name']}: {e}")
+    
+    return jsonify({
+        'success': True,
+        'category': category,
+        'articles': all_articles[:30]
+    })
+
+@app.route('/api/translate', methods=['POST'])
+def translate():
     try:
-        articles = get_news(category, translate)
+        data = request.get_json()
+        title = data.get('title', '')
+        description = data.get('description', '')
+        
+        print(f"Translating: {title[:50]}")
+        
+        translated_title = translate_text(title)
+        translated_description = translate_text(description)
+        
+        print(f"Translated to: {translated_title[:50]}")
+        
         return jsonify({
             'success': True,
-            'articles': articles,
-            'category': category,
-            'category_name': CATEGORY_NAMES.get(category, category)
+            'translated_title': translated_title,
+            'translated_description': translated_description
         })
     except Exception as e:
+        print(f"Translate API error: {e}")
         return jsonify({
             'success': False,
-            'error': str(e),
-            'articles': []
-        }), 500
+            'translated_title': data.get('title', ''),
+            'translated_description': data.get('description', ''),
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
