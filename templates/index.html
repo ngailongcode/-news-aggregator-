@@ -3,292 +3,455 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新聞聚合器</title>
+    <title>新聞聚合</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f5f5f5;
-            color: #333;
-        }
-        
-        header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
-        
-        header h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-        
-        /* 分類導航 */
-        .categories {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 10px;
-            padding: 20px;
-            background: white;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
-        .categories a {
-            padding: 10px 20px;
-            text-decoration: none;
-            color: #333;
-            background: #f0f0f0;
-            border-radius: 25px;
-            transition: all 0.3s;
-        }
-        
-        .categories a:hover,
-        .categories a.active {
-            background: #1a1a2e;
-            color: white;
-        }
-        
-        /* 翻譯開關 */
-        .translate-toggle {
-            text-align: center;
-            padding: 15px;
-            background: #fff;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .translate-toggle label {
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .translate-toggle input {
-            width: 20px;
-            height: 20px;
-        }
-        
-        /* 新聞容器 */
-        .news-container {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 0 20px;
-        }
-        
-        .news-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-        
-        /* 新聞卡片 */
-        .news-card {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        
-        .news-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
-        }
-        
-        .news-image {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            background: #ddd;
-        }
-        
-        .news-content {
-            padding: 20px;
-        }
-        
-        .news-source {
-            display: inline-block;
-            font-size: 0.75rem;
-            color: white;
-            background: #e94560;
-            padding: 4px 10px;
-            border-radius: 15px;
-            margin-bottom: 10px;
-        }
-        
-        .news-title {
-            font-size: 1.1rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-            line-height: 1.4;
-        }
-        
-        .news-title a {
-            color: #1a1a2e;
-            text-decoration: none;
-        }
-        
-        .news-title a:hover {
-            color: #e94560;
-        }
-        
-        .news-description {
-            font-size: 0.9rem;
-            color: #666;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
             line-height: 1.6;
-            margin-bottom: 15px;
+            padding: 16px;
+            padding-bottom: 80px;
         }
-        
-        .news-meta {
+
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.85rem;
-            color: #888;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
         }
-        
-        .read-more {
-            color: #e94560;
-            text-decoration: none;
-            font-weight: bold;
+
+        h1 {
+            font-size: 24px;
+            font-weight: 700;
         }
-        
-        .read-more:hover {
-            text-decoration: underline;
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
         }
-        
-        /* 無圖片時的佔位 */
-        .no-image {
-            width: 100%;
-            height: 200px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+        .refresh-btn {
+            background: #2d5a27;
+            color: white;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 3rem;
+            gap: 6px;
+            transition: background 0.2s;
         }
-        
-        /* 載入中 */
+
+        .refresh-btn:hover {
+            background: #3d7a37;
+        }
+
+        .refresh-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+
+        .refresh-btn.spinning .icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .last-update {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 16px;
+        }
+
+        .categories {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .category-btn {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .category-btn:hover {
+            border-color: #555;
+        }
+
+        .category-btn.active {
+            background: #2d5a27;
+            border-color: #2d5a27;
+        }
+
         .loading {
             text-align: center;
-            padding: 50px;
+            padding: 60px 20px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #2d5a27;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        .loading-text {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .news-card {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #2a2a2a;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .news-card:hover {
+            border-color: #444;
+            transform: translateY(-1px);
+        }
+
+        .news-card:active {
+            transform: scale(0.98);
+        }
+
+        .news-source {
+            font-size: 12px;
+            color: #4a9eff;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .news-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .news-description {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
             color: #666;
         }
-        
-        /* 響應式設計 */
-        @media (max-width: 768px) {
-            .news-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .categories {
-                gap: 8px;
-            }
-            
-            .categories a {
-                padding: 8px 15px;
-                font-size: 0.85rem;
-            }
-            
-            header h1 {
-                font-size: 1.5rem;
-            }
+
+        .news-category {
+            background: #2a2a2a;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #666;
+            text-decoration: none;
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .nav-item:hover {
+            color: #888;
+        }
+
+        .nav-item.active {
+            color: #4a9eff;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 40px;
+            color: #ff6b6b;
+        }
+
+        .retry-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-top: 16px;
+            cursor: pointer;
+        }
+
+        .no-news {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>📰 新聞聚合器</h1>
-        <p>即時國際新聞一覽</p>
-    </header>
-    
-    <!-- 分類導航 -->
-    <nav class="categories">
-        {% for key, name in categories.items() %}
-        <a href="?category={{ key }}{% if translate %}&translate=true{% endif %}" 
-           class="{% if current_category == key %}active{% endif %}">
-            {{ name }}
-        </a>
-        {% endfor %}
-    </nav>
-    
-    <!-- 翻譯開關 -->
-    <div class="translate-toggle">
-        <label>
-            <input type="checkbox" id="translateToggle" 
-                   {% if translate %}checked{% endif %}
-                   onchange="toggleTranslate()">
-            🌐 翻譯成中文
-        </label>
+    <div class="header">
+        <h1>📰 新聞聚合</h1>
+        <div class="header-buttons">
+            <button class="refresh-btn" onclick="refreshNews()">
+                <span class="icon">🔄</span>
+                <span class="text">刷新</span>
+            </button>
+        </div>
     </div>
-    
-    <!-- 新聞列表 -->
-    <main class="news-container">
-        {% if articles %}
-        <div class="news-grid">
-            {% for article in articles %}
-            <article class="news-card">
-                {% if article.image %}
-                <img src="{{ article.image }}" alt="{{ article.title }}" class="news-image"
-                     onerror="this.parentElement.innerHTML='<div class=\'no-image\'>📰</div>' + this.parentElement.innerHTML.split('</img>')[1]">
-                {% else %}
-                <div class="no-image">📰</div>
-                {% endif %}
-                
-                <div class="news-content">
-                    <span class="news-source">{{ article.source }}</span>
-                    
-                    <h2 class="news-title">
-                        <a href="{{ article.url }}" target="_blank" rel="noopener">
-                            {{ article.title }}
-                        </a>
-                    </h2>
-                    
-                    {% if article.description %}
-                    <p class="news-description">
-                        {{ article.description }}
-                    </p>
-                    {% endif %}
-                    
-                    <div class="news-meta">
-                        <span>🕐 {{ article.published }}</span>
-                        <a href="{{ article.url }}" target="_blank" rel="noopener" class="read-more">
-                            閱讀更多 →
-                        </a>
-                    </div>
-                </div>
-            </article>
-            {% endfor %}
-        </div>
-        {% else %}
+
+    <div class="last-update" id="lastUpdate"></div>
+
+    <div class="categories" id="categories">
+        <button class="category-btn active" data-category="all">全部</button>
+        <button class="category-btn" data-category="finance">財經</button>
+        <button class="category-btn" data-category="tech">科技</button>
+        <button class="category-btn" data-category="entertainment">娛樂</button>
+        <button class="category-btn" data-category="sports">體育</button>
+        <button class="category-btn" data-category="world">國際</button>
+    </div>
+
+    <div id="newsContainer">
         <div class="loading">
-            <p>暫無新聞，請稍後再試...</p>
+            <div class="loading-spinner"></div>
+            <div class="loading-text">載入新聞中...</div>
         </div>
-        {% endif %}
-    </main>
-    
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active">
+            <span class="nav-icon">📰</span>
+            <span>新聞</span>
+        </div>
+        <div class="nav-item" onclick="refreshNews()">
+            <span class="nav-icon">🔄</span>
+            <span>刷新</span>
+        </div>
+        <div class="nav-item" onclick="scrollToTop()">
+            <span class="nav-icon">⬆️</span>
+            <span>頂部</span>
+        </div>
+    </nav>
+
     <script>
-        function toggleTranslate() {
-            const checkbox = document.getElementById('translateToggle');
-            const url = new URL(window.location.href);
-            
-            if (checkbox.checked) {
-                url.searchParams.set('translate', 'true');
-            } else {
-                url.searchParams.delete('translate');
+        let allNews = [];
+        let currentCategory = 'all';
+        let isLoading = false;
+
+        // 頁面載入時獲取新聞
+        document.addEventListener('DOMContentLoaded', () => {
+            loadNews();
+            setupCategoryButtons();
+        });
+
+        function setupCategoryButtons() {
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentCategory = btn.dataset.category;
+                    displayNews();
+                });
+            });
+        }
+
+        async function loadNews() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const container = document.getElementById('newsContainer');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">載入新聞中...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/news');
+                if (!response.ok) throw new Error('API 錯誤');
+                
+                allNews = await response.json();
+                updateLastUpdateTime();
+                displayNews();
+            } catch (error) {
+                console.error('Error:', error);
+                container.innerHTML = `
+                    <div class="error-message">
+                        <p>😕 無法載入新聞</p>
+                        <button class="retry-btn" onclick="loadNews()">重試</button>
+                    </div>
+                `;
+            } finally {
+                isLoading = false;
             }
+        }
+
+        async function refreshNews() {
+            if (isLoading) return;
             
-            window.location.href = url.toString();
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            btn.disabled = true;
+
+            isLoading = true;
+
+            try {
+                // 強制刷新：添加 refresh 參數
+                const response = await fetch('/api/news?refresh=true');
+                if (!response.ok) throw new Error('API 錯誤');
+                
+                allNews = await response.json();
+                updateLastUpdateTime();
+                displayNews();
+                showToast('✅ 新聞已更新');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('❌ 刷新失敗，請重試');
+            } finally {
+                isLoading = false;
+                btn.classList.remove('spinning');
+                btn.disabled = false;
+            }
+        }
+
+        function displayNews() {
+            const container = document.getElementById('newsContainer');
+            
+            let filteredNews = allNews;
+            if (currentCategory !== 'all') {
+                filteredNews = allNews.filter(item => item.category === currentCategory);
+            }
+
+            if (filteredNews.length === 0) {
+                container.innerHTML = '<div class="no-news">暫無相關新聞</div>';
+                return;
+            }
+
+            container.innerHTML = filteredNews.map(item => `
+                <article class="news-card" onclick="openNews('${encodeURIComponent(item.link)}')">
+                    <div class="news-source">${item.source}</div>
+                    <h2 class="news-title">${item.title}</h2>
+                    ${item.description ? `<p class="news-description">${item.description}</p>` : ''}
+                    <div class="news-meta">
+                        <span class="news-category">${getCategoryName(item.category)}</span>
+                        <span>${item.pubDate}</span>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function getCategoryName(category) {
+            const names = {
+                'finance': '財經',
+                'tech': '科技',
+                'entertainment': '娛樂',
+                'sports': '體育',
+                'world': '國際',
+                'general': '一般'
+            };
+            return names[category] || category;
+        }
+
+        function openNews(url) {
+            window.open(decodeURIComponent(url), '_blank');
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleString('zh-TW', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('lastUpdate').textContent = `上次更新：${timeStr}`;
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
         }
     </script>
 </body>
