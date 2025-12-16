@@ -1,181 +1,504 @@
-from flask import Flask, jsonify, request, render_template
-import requests
-import re
-from datetime import datetime
-import urllib.parse
-
-app = Flask(__name__)
-
-# 新聞分類
-CATEGORY_FEEDS = {
-    'headlines': [
-        {'url': 'https://feeds.bbci.co.uk/news/rss.xml', 'name': 'BBC'},
-        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', 'name': 'NYT'}
-    ],
-    'business': [
-        {'url': 'https://feeds.bbci.co.uk/news/business/rss.xml', 'name': 'BBC Business'},
-        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', 'name': 'NYT Business'}
-    ],
-    'tech': [
-        {'url': 'https://feeds.bbci.co.uk/news/technology/rss.xml', 'name': 'BBC Tech'},
-        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml', 'name': 'NYT Tech'}
-    ],
-    'entertainment': [
-        {'url': 'https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml', 'name': 'BBC Entertainment'}
-    ],
-    'sports': [
-        {'url': 'https://feeds.bbci.co.uk/sport/rss.xml', 'name': 'BBC Sport'}
-    ],
-    'world': [
-        {'url': 'https://feeds.bbci.co.uk/news/world/rss.xml', 'name': 'BBC World'},
-        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/World.xml', 'name': 'NYT World'}
-    ],
-    'health': [
-        {'url': 'https://feeds.bbci.co.uk/news/health/rss.xml', 'name': 'BBC Health'},
-        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Health.xml', 'name': 'NYT Health'}
-    ],
-    'science': [
-        {'url': 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml', 'name': 'BBC Science'},
-        {'url': 'https://rss.nytimes.com/services/xml/rss/nyt/Science.xml', 'name': 'NYT Science'}
-    ]
-}
-
-def parse_xml(xml_text):
-    """簡易 XML 解析"""
-    items = []
-    item_pattern = re.compile(r'<item>(.*?)</item>', re.DOTALL)
-    
-    for match in item_pattern.finditer(xml_text):
-        item_content = match.group(1)
-        
-        def get_tag(tag):
-            # 處理 CDATA
-            pattern = re.compile(f'<{tag}[^>]*><!\\[CDATA\\[(.*?)\\]\\]></{tag}>|<{tag}[^>]*>(.*?)</{tag}>', re.DOTALL)
-            m = pattern.search(item_content)
-            if m:
-                return (m.group(1) or m.group(2) or '').strip()
-            return ''
-        
-        title = get_tag('title')
-        link = get_tag('link')
-        description = re.sub(r'<[^>]+>', '', get_tag('description'))[:200]
-        pub_date = get_tag('pubDate')
-        
-        if title:
-            items.append({
-                'title': title,
-                'link': link,
-                'description': description,
-                'pubDate': pub_date
-            })
-    
-    return items
-
-def format_date(date_str):
-    """格式化日期"""
-    try:
-        dt = datetime.strptime(date_str, '%a, %d %b %Y %H:%M:%S %Z')
-        return dt.strftime('%Y-%m-%d %H:%M')
-    except:
-        try:
-            dt = datetime.strptime(date_str[:25], '%a, %d %b %Y %H:%M:%S')
-            return dt.strftime('%Y-%m-%d %H:%M')
-        except:
-            return date_str
-
-def translate_text(text):
-    """使用 Google 翻譯 API"""
-    if not text or text.strip() == '':
-        return text
-    
-    try:
-        url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q={urllib.parse.quote(text)}"
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新聞聚合</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            if data and data[0]:
-                translated = ''
-                for part in data[0]:
-                    if part[0]:
-                        translated += part[0]
-                return translated if translated else text
-        
-        return text
-    except Exception as e:
-        print(f"Translation error: {e}")
-        return text
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
 
-@app.route('/api/news')
-def get_news():
-    category = request.args.get('category', 'headlines')
-    feeds = CATEGORY_FEEDS.get(category, CATEGORY_FEEDS['headlines'])
-    
-    all_articles = []
-    
-    for feed in feeds:
-        try:
-            response = requests.get(feed['url'], timeout=10, headers={
-                'User-Agent': 'Mozilla/5.0 (compatible; NewsAggregator/1.0)'
-            })
-            
-            if response.status_code == 200:
-                items = parse_xml(response.text)
-                
-                for item in items[:10]:
-                    all_articles.append({
-                        'title': item['title'],
-                        'description': item['description'],
-                        'url': item['link'],
-                        'source': feed['name'],
-                        'published': format_date(item['pubDate']),
-                        'category': category
-                    })
-        except Exception as e:
-            print(f"Error fetching {feed['name']}: {e}")
-    
-    return jsonify({
-        'success': True,
-        'category': category,
-        'articles': all_articles[:30]
-    })
+        .header {
+            background: #1a1a1a;
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-@app.route('/api/translate', methods=['POST'])
-def translate():
-    try:
-        data = request.get_json()
-        title = data.get('title', '')
-        description = data.get('description', '')
-        
-        print(f"Translating: {title[:50]}")
-        
-        translated_title = translate_text(title)
-        translated_description = translate_text(description)
-        
-        print(f"Translated to: {translated_title[:50]}")
-        
-        return jsonify({
-            'success': True,
-            'translated_title': translated_title,
-            'translated_description': translated_description
-        })
-    except Exception as e:
-        print(f"Translate API error: {e}")
-        return jsonify({
-            'success': False,
-            'translated_title': data.get('title', ''),
-            'translated_description': data.get('description', ''),
-            'error': str(e)
-        })
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+        .header-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .refresh-btn {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: #3a8eef;
+        }
+
+        .refresh-btn.spinning .icon {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .last-update {
+            padding: 8px 20px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .categories {
+            padding: 12px 20px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .categories::-webkit-scrollbar {
+            display: none;
+        }
+
+        .category-btn {
+            background: #2a2a2a;
+            color: #888;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .category-btn.active {
+            background: #4a9eff;
+            color: white;
+        }
+
+        .category-btn:hover {
+            background: #3a3a3a;
+        }
+
+        .category-btn.active:hover {
+            background: #3a8eef;
+        }
+
+        #newsContainer {
+            padding: 16px 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #4a9eff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        .loading-text {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .news-card {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            border: 1px solid #2a2a2a;
+        }
+
+        .news-card:hover {
+            background: #222;
+            transform: translateY(-2px);
+        }
+
+        .news-card:active {
+            transform: scale(0.98);
+        }
+
+        .news-source {
+            font-size: 12px;
+            color: #4a9eff;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .news-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .news-description {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .news-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .news-category {
+            background: #2a2a2a;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #666;
+            text-decoration: none;
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .nav-item:hover {
+            color: #888;
+        }
+
+        .nav-item.active {
+            color: #4a9eff;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 40px;
+            color: #ff6b6b;
+        }
+
+        .retry-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-top: 16px;
+            cursor: pointer;
+        }
+
+        .no-news {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗞️ 新聞聚合</h1>
+        <div class="header-buttons">
+            <button class="refresh-btn" onclick="refreshNews()">
+                <span class="icon">🔄</span>
+                <span class="text">刷新</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="last-update" id="lastUpdate"></div>
+
+    <div class="categories" id="categories">
+        <button class="category-btn active" data-category="all">全部</button>
+        <button class="category-btn" data-category="business">財經</button>
+        <button class="category-btn" data-category="tech">科技</button>
+        <button class="category-btn" data-category="entertainment">娛樂</button>
+        <button class="category-btn" data-category="sports">體育</button>
+        <button class="category-btn" data-category="world">國際</button>
+        <button class="category-btn" data-category="health">健康</button>
+        <button class="category-btn" data-category="science">科學</button>
+    </div>
+
+    <div id="newsContainer">
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">載入新聞中...</div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active">
+            <span class="nav-icon">🗞️</span>
+            <span>新聞</span>
+        </div>
+        <div class="nav-item" onclick="refreshNews()">
+            <span class="nav-icon">🔄</span>
+            <span>刷新</span>
+        </div>
+        <div class="nav-item" onclick="scrollToTop()">
+            <span class="nav-icon">⬆️</span>
+            <span>頂部</span>
+        </div>
+    </nav>
+
+    <script>
+        let allNews = [];
+        let currentCategory = 'all';
+        let isLoading = false;
+
+        // 頁面載入時獲取新聞
+        document.addEventListener('DOMContentLoaded', () => {
+            loadNews();
+            setupCategoryButtons();
+        });
+
+        function setupCategoryButtons() {
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentCategory = btn.dataset.category;
+                    
+                    if (currentCategory === 'all') {
+                        loadNews();
+                    } else {
+                        loadNewsByCategory(currentCategory);
+                    }
+                });
+            });
+        }
+
+        async function loadNews() {
+            if (isLoading) return;
+            isLoading = true;
+
+            const container = document.getElementById('newsContainer');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">載入新聞中...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/news');
+                if (!response.ok) throw new Error('API 錯誤');
+
+                const data = await response.json();
+                if (data.success) {
+                    allNews = data.articles || [];
+                } else {
+                    allNews = [];
+                }
+                updateLastUpdateTime();
+                displayNews();
+            } catch (error) {
+                console.error('Error:', error);
+                container.innerHTML = `
+                    <div class="error-message">
+                        <p>😕 無法載入新聞</p>
+                        <button class="retry-btn" onclick="loadNews()">重試</button>
+                    </div>
+                `;
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        async function loadNewsByCategory(category) {
+            if (isLoading) return;
+            isLoading = true;
+
+            const container = document.getElementById('newsContainer');
+            container.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">載入新聞中...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch('/api/news?category=' + category);
+                if (!response.ok) throw new Error('API 錯誤');
+
+                const data = await response.json();
+                if (data.success) {
+                    allNews = data.articles || [];
+                } else {
+                    allNews = [];
+                }
+                updateLastUpdateTime();
+                displayNews();
+            } catch (error) {
+                console.error('Error:', error);
+                container.innerHTML = `
+                    <div class="error-message">
+                        <p>😕 無法載入新聞</p>
+                        <button class="retry-btn" onclick="loadNewsByCategory('${category}')">重試</button>
+                    </div>
+                `;
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        async function refreshNews() {
+            if (isLoading) return;
+
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+            btn.disabled = true;
+
+            isLoading = true;
+
+            try {
+                const category = currentCategory === 'all' ? 'headlines' : currentCategory;
+                const response = await fetch('/api/news?category=' + category);
+                if (!response.ok) throw new Error('API 錯誤');
+
+                const data = await response.json();
+                if (data.success) {
+                    allNews = data.articles || [];
+                } else {
+                    allNews = [];
+                }
+                updateLastUpdateTime();
+                displayNews();
+                showToast('✅ 新聞已更新');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('❌ 刷新失敗，請重試');
+            } finally {
+                isLoading = false;
+                btn.classList.remove('spinning');
+                btn.disabled = false;
+            }
+        }
+
+        function displayNews() {
+            const container = document.getElementById('newsContainer');
+
+            if (allNews.length === 0) {
+                container.innerHTML = '<div class="no-news">暫無相關新聞</div>';
+                return;
+            }
+
+            container.innerHTML = allNews.map(item => `
+                <article class="news-card" onclick="openNews('${encodeURIComponent(item.url)}')">
+                    <div class="news-source">${item.source || '未知來源'}</div>
+                    <h2 class="news-title">${item.title || '無標題'}</h2>
+                    ${item.description ? `<p class="news-description">${item.description}</p>` : ''}
+                    <div class="news-meta">
+                        <span class="news-category">${item.source || '新聞'}</span>
+                        <span>${item.published || ''}</span>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        function openNews(url) {
+            window.open(decodeURIComponent(url), '_blank');
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleString('zh-TW', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('lastUpdate').textContent = `上次更新：${timeStr}`;
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
